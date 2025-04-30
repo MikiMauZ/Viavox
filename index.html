@@ -176,6 +176,43 @@
         .icon {
             margin-right: 8px;
         }
+
+        .footer-container {
+            margin-top: 30px;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .app-links {
+            margin-bottom: 15px;
+        }
+        
+        .app-link {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            color: var(--primary-color);
+            padding: 8px 15px;
+            background-color: #f0f0f0;
+            border-radius: var(--border-radius);
+            margin: 5px 0;
+        }
+        
+        .app-link:hover {
+            background-color: #e5e5e5;
+        }
+        
+        .copyright {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        
+        .cookies-notice {
+            font-size: 12px;
+            color: #888;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -190,7 +227,7 @@
             <div>
                 <h1 class="app-title">ViaVox</h1>
             </div>
-            <span class="tagline">Parte de Tallyra Solutions</span>
+            <span class="tagline">La comunicación ágil</span>
         </div>
     </div>
     
@@ -277,48 +314,12 @@
         </div>
     </div>
 
-    <style>
-        .footer-container {
-            margin-top: 30px;
-            padding: 15px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 14px;
-        }
-        
-        .app-links {
-            margin-bottom: 15px;
-        }
-        
-        .app-link {
-            display: inline-flex;
-            align-items: center;
-            text-decoration: none;
-            color: var(--primary-color);
-            padding: 8px 15px;
-            background-color: #f0f0f0;
-            border-radius: var(--border-radius);
-            margin: 5px 0;
-        }
-        
-        .app-link:hover {
-            background-color: #e5e5e5;
-        }
-        
-        .copyright {
-            margin-bottom: 10px;
-            color: #666;
-        }
-        
-        .cookies-notice {
-            font-size: 12px;
-            color: #888;
-            line-height: 1.4;
-        }
-    </style>
-
     <script>
+        // Variable para el reconocimiento de voz
         let recognition;
         let isClientMode = true;
+        
+        // Elementos del DOM
         const startButton = document.getElementById('startRecording');
         const stopButton = document.getElementById('stopRecording');
         const statusDiv = document.getElementById('status');
@@ -327,6 +328,19 @@
         const clientToStaffBtn = document.getElementById('clientToStaff');
         const staffToClientBtn = document.getElementById('staffToClient');
         const languageSelect = document.getElementById('clientLanguage');
+
+        // Desbloquear audio (algunos navegadores requieren interacción del usuario)
+        document.addEventListener('click', unlockAudio, false);
+        
+        function unlockAudio() {
+            // Crear un elemento de audio y reproducirlo brevemente para desbloquear Audio API
+            const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjMyLjEwNAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD////////////////////////8AAAA//tAxAAAApBQCEAaEAAAAZpMmeqAXswEAgGCAJABQDDwFKAgCA4cOHcJwQBARwGgKMQYGCCBwUQA4PjgVXxRfGgcDjw+eE4ODvxQ+Dg7/Hw+D4fd8Ufw//hfD8Pw+F8P//wf//////AX//8Pf////+f/4fh8UPg+Pjg8Hxd8fB0E4ODD+DwfiwLg49//68KGVcCd/H8Pw+F4P");
+            silentAudio.play().catch(e => {
+                console.log("Audio playback was prevented by the browser, requires user interaction first");
+            });
+            // Solo necesitamos hacerlo una vez
+            document.removeEventListener('click', unlockAudio);
+        }
 
         // Configurar botones de modo
         clientToStaffBtn.addEventListener('click', () => setMode(true));
@@ -383,19 +397,30 @@
             
             // Manejar errores
             recognition.onerror = (event) => {
+                console.error('Error en reconocimiento de voz:', event);
                 statusDiv.textContent = 'Error en reconocimiento: ' + event.error;
                 stopRecording();
             };
             
             recognition.onend = () => {
                 if (startButton.disabled) {
-                    recognition.start();
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        console.error('Error al reiniciar reconocimiento:', error);
+                        stopRecording();
+                    }
                 }
             };
             
-            recognition.start();
-            startButton.disabled = true;
-            stopButton.disabled = false;
+            try {
+                recognition.start();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            } catch (error) {
+                console.error('Error al iniciar reconocimiento:', error);
+                statusDiv.textContent = 'Error al iniciar el reconocimiento de voz';
+            }
         });
 
         // Detener reconocimiento
@@ -403,7 +428,11 @@
 
         function stopRecording() {
             if (recognition) {
-                recognition.stop();
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    console.error('Error al detener reconocimiento:', error);
+                }
             }
             startButton.disabled = false;
             stopButton.disabled = true;
@@ -415,22 +444,28 @@
             if (!text) return;
             
             statusDiv.textContent = 'Traduciendo...';
+            console.log('Texto original para traducir:', text);
             
             // Determinar idiomas de origen y destino
             const fromLang = isClientMode ? languageSelect.value : 'es';
             const toLang = isClientMode ? 'es' : languageSelect.value;
             
             try {
-                // Usar API pública de LibreTranslate (sin API key como ejemplo)
-                // En un entorno de producción, considera usar una API con clave
-                const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=' 
-                    + fromLang + '&tl=' + toLang + '&dt=t&q=' + encodeURIComponent(text));
+                // Usar API pública de Google Translate
+                const apiUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' 
+                    + fromLang + '&tl=' + toLang + '&dt=t&q=' + encodeURIComponent(text);
+                
+                console.log('URL de traducción:', apiUrl);
+                
+                const response = await fetch(apiUrl);
                 
                 if (!response.ok) {
-                    throw new Error('Error en la traducción');
+                    throw new Error('Error en la respuesta: ' + response.status);
                 }
                 
                 const data = await response.json();
+                console.log('Respuesta de traducción:', data);
+                
                 let translatedText = '';
                 
                 // Extraer el texto traducido
@@ -440,10 +475,11 @@
                     }
                 }
                 
+                console.log('Texto traducido:', translatedText);
                 translatedTextDiv.textContent = translatedText;
                 statusDiv.textContent = 'Traducción completada';
                 
-                // TTS - Text-to-Speech (implementación básica)
+                // TTS - Text-to-Speech mejorado
                 speakText(translatedText, toLang);
                 
             } catch (error) {
@@ -453,19 +489,72 @@
             }
         }
 
-        // Función para reproducir texto como voz
+        // Función para reproducir texto como voz (mejorada)
         function speakText(text, lang) {
-            if ('speechSynthesis' in window) {
+            if (!('speechSynthesis' in window)) {
+                console.warn('Síntesis de voz no soportada en este navegador');
+                return;
+            }
+            
+            try {
+                console.log('Iniciando síntesis de voz para:', text);
+                
+                // Detener cualquier síntesis en curso
+                window.speechSynthesis.cancel();
+                
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = lang;
-                speechSynthesis.speak(utterance);
+                utterance.volume = 1; // Volumen máximo
+                utterance.rate = 1; // Velocidad normal
+                utterance.pitch = 1; // Tono normal
+                
+                // Registrar eventos para debugging
+                utterance.onstart = () => console.log('Síntesis de voz iniciada');
+                utterance.onend = () => console.log('Síntesis de voz completada');
+                utterance.onerror = (event) => console.error('Error en la síntesis de voz:', event);
+                
+                // Utilizar setTimeout para dar tiempo al navegador a prepararse
+                setTimeout(() => {
+                    window.speechSynthesis.speak(utterance);
+                    
+                    // Algunos navegadores tienen un bug que detiene speechSynthesis
+                    // Esta solución ayuda a mantenerlo activo
+                    const voiceSynthesisWatcher = setInterval(() => {
+                        if (!window.speechSynthesis.speaking) {
+                            clearInterval(voiceSynthesisWatcher);
+                            return;
+                        }
+                        window.speechSynthesis.pause();
+                        setTimeout(() => {
+                            window.speechSynthesis.resume();
+                        }, 50);
+                    }, 10000);
+                }, 100);
+            } catch (error) {
+                console.error('Error al iniciar la síntesis de voz:', error);
             }
         }
 
-        // No hay botones de frases frecuentes en esta versión
-
         // Inicializar la interfaz
         setMode(true);
+        
+        // Verificar si la API de voz está disponible
+        window.addEventListener('load', () => {
+            if ('speechSynthesis' in window) {
+                console.log('Síntesis de voz disponible');
+                // Precarga de voces (ayuda en algunos navegadores)
+                speechSynthesis.getVoices();
+            } else {
+                console.warn('Síntesis de voz no disponible');
+                statusDiv.textContent += ' (Síntesis de voz no disponible)';
+            }
+            
+            if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+                console.warn('Reconocimiento de voz no disponible');
+                statusDiv.textContent = 'Tu navegador no soporta reconocimiento de voz';
+                startButton.disabled = true;
+            }
+        });
     </script>
 </body>
 </html>
